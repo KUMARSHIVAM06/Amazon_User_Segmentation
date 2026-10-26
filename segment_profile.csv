@@ -1,0 +1,6 @@
+segment,users,avg_orders,avg_spend,aov,coupon_rate,return_rate,prime_pct,recency,electronics_share,grocery_share,users_pct,revenue_pct
+Premium Loyalists,1236,29.87,156715.57,5266.86,0.15,0.05,0.95,14.01,0.14,0.11,15.4,56.3
+Tech Enthusiasts,1269,6.02,59645.31,9312.9,0.37,0.17,0.48,68.47,0.47,0.03,15.9,22.0
+Family Bulk Buyers,1210,21.34,33457.16,1570.3,0.56,0.04,0.72,18.27,0.05,0.31,15.1,11.8
+Deal Seekers,2357,9.68,9629.31,1024.22,0.84,0.1,0.32,39.76,0.06,0.18,29.5,6.6
+Occasional Shoppers,1928,2.92,6055.89,2002.03,0.44,0.08,0.13,116.16,0.08,0.09,24.1,3.4

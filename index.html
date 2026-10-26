@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amazon – User Segmentation Dashboard</title>
+  <meta name="description" content="K-Means customer segmentation dashboard for Amazon – 8,000 users, 5 segments, cross-sell insights." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #05080e;
+      --surface:  #0c1018;
+      --surface2: #121820;
+      --border:   rgba(255,255,255,0.07);
+      --amazon:   #ff9900;
+      --amazon2:  #ff6600;
+      --blue:     #146eb4;
+      --teal:     #00a8a2;
+      --green:    #1aaa55;
+      --red:      #e53935;
+      --purple:   #7c3aed;
+      --text:     #f0f4f8;
+      --muted:    #5a6a80;
+      --r:        16px;
+    }
+
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+    /* Animated background */
+    .bg-blobs { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(130px); opacity: 0.10; animation: drift 20s ease-in-out infinite alternate; }
+    .blob-1 { width: 700px; height: 700px; background: var(--amazon);  top: -250px; left: -250px; animation-delay: 0s; }
+    .blob-2 { width: 500px; height: 500px; background: var(--blue);    bottom: -150px; right: -150px; animation-delay: -8s; }
+    .blob-3 { width: 350px; height: 350px; background: var(--teal);    top: 45%; left: 50%; animation-delay: -4s; }
+    @keyframes drift { from{transform:translate(0,0) scale(1)} to{transform:translate(40px,30px) scale(1.08)} }
+
+    .wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* Header */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 30px 0 40px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+    }
+    .logo { display: flex; align-items: center; gap: 16px; }
+    .logo-icon {
+      width: 50px; height: 50px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--amazon), var(--amazon2));
+      display: grid; place-items: center; font-size: 24px;
+      box-shadow: 0 0 30px rgba(255,153,0,0.4);
+    }
+    .logo-title h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.025em; }
+    .logo-title p  { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+    .header-chips { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .chip {
+      padding: 6px 14px; border-radius: 100px; font-size: 0.75rem;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      color: var(--muted); display: flex; align-items: center; gap: 6px;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+    /* KPI Grid */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(195px,1fr)); gap: 16px; margin-bottom: 32px; }
+    .kpi {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+      padding: 22px 20px; position: relative; overflow: hidden;
+      transition: transform .25s, box-shadow .25s; cursor: default;
+    }
+    .kpi:hover { transform: translateY(-5px); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+    .kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius: var(--r) var(--r) 0 0; }
+    .kpi.orange::before { background: linear-gradient(90deg,var(--amazon),var(--amazon2)); }
+    .kpi.blue::before   { background: linear-gradient(90deg,var(--blue),var(--teal)); }
+    .kpi.green::before  { background: linear-gradient(90deg,var(--green),#34d399); }
+    .kpi.red::before    { background: linear-gradient(90deg,var(--red),#f97316); }
+    .kpi.purple::before { background: linear-gradient(90deg,var(--purple),#ec4899); }
+    .kpi.teal::before   { background: linear-gradient(90deg,var(--teal),var(--blue)); }
+    .kpi-icon  { font-size: 1.7rem; margin-bottom: 10px; }
+    .kpi-label { font-size: 0.71rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+    .kpi-value { font-size: 1.8rem; font-weight: 900; letter-spacing: -0.03em; }
+    .kpi-sub   { font-size: 0.71rem; color: var(--muted); margin-top: 5px; }
+
+    /* Section title */
+    .section-title {
+      font-size: 0.72rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.1em;
+      margin: 40px 0 18px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .section-title::after { content:''; flex:1; height:1px; background: var(--border); }
+
+    /* Cards */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 24px; transition: box-shadow .25s; }
+    .card:hover { box-shadow: 0 8px 36px rgba(0,0,0,0.4); }
+    .card-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 22px; }
+
+    /* Grids */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    @media(max-width:950px) { .grid-2,.grid-3{grid-template-columns:1fr;} }
+    canvas { max-height: 290px; }
+
+    /* Segment Cards */
+    .seg-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 18px; }
+    .seg-card {
+      border-radius: 14px; padding: 22px 20px;
+      border: 1px solid var(--border); background: var(--surface2);
+      position: relative; overflow: hidden;
+      transition: transform .25s, box-shadow .25s;
+    }
+    .seg-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.5); }
+    .seg-card::after { content:''; position:absolute; top:0; left:0; width:100%; height:3px; }
+    .seg-name  { font-size: 1rem; font-weight: 800; margin-bottom: 16px; }
+    .seg-badge { display:inline-block; padding:3px 10px; border-radius:100px; font-size:0.7rem; font-weight:600; margin-bottom:12px; }
+    .seg-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .seg-stat  { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 10px; }
+    .seg-stat-label { font-size: 0.64rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .seg-stat-value { font-size: 0.92rem; font-weight: 700; }
+    .seg-bar-wrap { margin-top: 14px; }
+    .seg-bar-label { display:flex; justify-content:space-between; font-size:0.68rem; color:var(--muted); margin-bottom:5px; }
+    .seg-bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.07); }
+    .seg-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+
+    /* Strategy Table */
+    .strat-table { width:100%; border-collapse:collapse; }
+    .strat-table th { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); }
+    .strat-table td { padding:14px 14px; font-size:0.82rem; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:top; }
+    .strat-table tr:hover td { background:rgba(255,255,255,0.02); }
+
+    /* Cross-sell Pills */
+    .cs-grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
+    .cs-card { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:16px; transition:transform .2s; }
+    .cs-card:hover { transform:scale(1.03); }
+    .cs-seg  { font-size:0.7rem; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.06em; }
+    .cs-pair { font-size:0.9rem; font-weight:700; margin-bottom:10px; }
+    .cs-meta { display:flex; gap:10px; }
+    .cs-pill { padding:3px 10px; border-radius:100px; font-size:0.7rem; font-weight:600; }
+    .cs-lift { background:rgba(255,153,0,0.15); color:#fbbf24; }
+    .cs-sup  { background:rgba(20,110,180,0.15); color:#60a5fa; }
+
+    /* Charts Gallery */
+    .chart-gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:20px; }
+    .chart-img-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; transition:transform .25s,box-shadow .25s; }
+    .chart-img-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(0,0,0,0.5); }
+    .chart-img-card img { width:100%; display:block; background:#fff; }
+    .chart-img-card .img-caption { padding:12px 16px; font-size:0.8rem; color:var(--muted); }
+
+    /* Loader */
+    #loader { position:fixed; inset:0; background:var(--bg); z-index:999; display:grid; place-items:center; transition:opacity .5s; }
+    .spinner { width:46px; height:46px; border:3px solid rgba(255,255,255,0.08); border-top-color:var(--amazon); border-radius:50%; animation:spin .75s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* Reveal */
+    .reveal { opacity:0; transform:translateY(28px); transition:opacity .65s ease, transform .65s ease; }
+    .reveal.visible { opacity:1; transform:none; }
+  </style>
+</head>
+<body>
+
+<div id="loader"><div class="spinner"></div></div>
+
+<div class="bg-blobs">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header class="reveal">
+    <div class="logo">
+      <div class="logo-icon">📦</div>
+      <div class="logo-title">
+        <h1>Amazon User Segmentation</h1>
+        <p>K-Means Clustering · 8,000 Users · 5 Segments · Cross-Sell Insights</p>
+      </div>
+    </div>
+    <div class="header-chips">
+      <div class="chip"><span class="dot" style="background:#ff9900"></span>K = 5 Chosen</div>
+      <div class="chip"><span class="dot" style="background:#1aaa55"></span>~1.6L Orders</div>
+      <div class="chip"><span class="dot" style="background:#146eb4"></span>12 Months Data</div>
+    </div>
+  </header>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid reveal">
+    <div class="kpi orange">
+      <div class="kpi-icon">👥</div>
+      <div class="kpi-label">Total Users</div>
+      <div class="kpi-value" id="kpi-users">8,000</div>
+      <div class="kpi-sub">Across 5 segments</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-icon">🏆</div>
+      <div class="kpi-label">Premium Loyalists</div>
+      <div class="kpi-value" id="kpi-premium-pct">15.4%</div>
+      <div class="kpi-sub" id="kpi-premium-rev">56.3% of revenue</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Avg Spend (Premium)</div>
+      <div class="kpi-value">₹1.57L</div>
+      <div class="kpi-sub">~30 orders/year</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-icon">🏷️</div>
+      <div class="kpi-label">Deal Seekers</div>
+      <div class="kpi-value" id="kpi-deal">29.5%</div>
+      <div class="kpi-sub">84% orders use coupon</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-icon">💤</div>
+      <div class="kpi-label">Occasional Shoppers</div>
+      <div class="kpi-value" id="kpi-occ">24.1%</div>
+      <div class="kpi-sub">~3 orders/yr · 116d recency</div>
+    </div>
+    <div class="kpi teal">
+      <div class="kpi-icon">🔬</div>
+      <div class="kpi-label">K Chosen</div>
+      <div class="kpi-value">5</div>
+      <div class="kpi-sub">Elbow + business logic</div>
+    </div>
+  </div>
+
+  <!-- Users vs Revenue + Category Mix -->
+  <div class="section-title reveal">📊 Segment Overview</div>
+  <div class="grid-2 reveal">
+    <div class="card">
+      <div class="card-title">Users % vs Revenue % per Segment</div>
+      <canvas id="usersRevenueChart"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">Avg Spend per User by Segment (₹)</div>
+      <canvas id="spendChart"></canvas>
+    </div>
+  </div>
+
+  <!-- K-Selection Charts -->
+  <div class="section-title reveal">📉 K-Selection Analysis</div>
+  <div class="grid-2 reveal">
+    <div class="card">
+      <div class="card-title">Elbow Curve — Inertia vs K</div>
+      <canvas id="elbowChart"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">Silhouette Score vs K</div>
+      <canvas id="silhouetteChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Segment Cards -->
+  <div class="section-title reveal">🎯 Segment Profiles</div>
+  <div class="seg-grid reveal" id="segGrid"></div>
+
+  <!-- Strategy Table -->
+  <div class="section-title reveal">🗺️ Marketing Strategy by Segment</div>
+  <div class="card reveal">
+    <table class="strat-table" id="stratTable"></table>
+  </div>
+
+  <!-- Cross-Sell -->
+  <div class="section-title reveal">🔗 Cross-Sell Opportunities</div>
+  <div class="cs-grid reveal" id="csGrid"></div>
+
+  <!-- Charts Gallery -->
+  <div class="section-title reveal">🖼️ Analysis Charts</div>
+  <div class="chart-gallery reveal" id="chartGallery"></div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = (n, dec=0) => Number(n).toLocaleString('en-IN', {maximumFractionDigits: dec});
+
+// Loader
+window.addEventListener('load', () => {
+  const l = $('loader');
+  setTimeout(() => { l.style.opacity='0'; setTimeout(()=>l.remove(),500); }, 600);
+});
+
+// Scroll Reveal
+const obs = new IntersectionObserver(es => es.forEach(e => {
+  if(e.isIntersecting){ e.target.classList.add('visible'); obs.unobserve(e.target); }
+}),{threshold:0.07});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+// Chart defaults
+Chart.defaults.color = '#5a6a80';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = 'Inter';
+
+const SEG_COLORS = {
+  'Premium Loyalists': '#ff9900',
+  'Tech Enthusiasts':  '#146eb4',
+  'Family Bulk Buyers':'#1aaa55',
+  'Deal Seekers':      '#e53935',
+  'Occasional Shoppers':'#7c3aed',
+};
+const SEG_EMOJIS = {
+  'Premium Loyalists': '👑',
+  'Tech Enthusiasts':  '💻',
+  'Family Bulk Buyers':'👨‍👩‍👧‍👦',
+  'Deal Seekers':      '🏷️',
+  'Occasional Shoppers':'💤',
+};
+
+async function init() {
+  const [segs, strategy, crossSell, kSel] = await Promise.all([
+    fetch('/api/segments').then(r=>r.json()),
+    fetch('/api/strategy').then(r=>r.json()),
+    fetch('/api/cross-sell').then(r=>r.json()),
+    fetch('/api/k-selection').then(r=>r.json()),
+  ]);
+
+  const segNames  = segs.map(s=>s.segment);
+  const segColors = segNames.map(n=>SEG_COLORS[n]||'#888');
+
+  // ── Users vs Revenue Chart
+  new Chart($('usersRevenueChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: segNames.map(n=>n.split(' ').slice(0,2).join(' ')),
+      datasets: [
+        { label:'Users %',   data: segs.map(s=>parseFloat(s.users_pct)),   backgroundColor: segColors.map(c=>c+'99'), borderRadius:6, borderSkipped:false },
+        { label:'Revenue %', data: segs.map(s=>parseFloat(s.revenue_pct)), backgroundColor: segColors, borderRadius:6, borderSkipped:false },
+      ]
+    },
+    options: {
+      plugins:{ legend:{ labels:{boxWidth:12,font:{size:11}} } },
+      scales:{ x:{grid:{display:false}}, y:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{callback:v=>v+'%'}} },
+      animation:{duration:1200}
+    }
+  });
+
+  // ── Avg Spend Chart
+  new Chart($('spendChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: segNames.map(n=>n.split(' ').slice(0,2).join(' ')),
+      datasets: [{ label:'Avg Spend (₹)', data: segs.map(s=>parseFloat(s.avg_spend)), backgroundColor: segColors, borderRadius:8, borderSkipped:false }]
+    },
+    options: {
+      plugins:{legend:{display:false}},
+      scales:{ x:{grid:{display:false}}, y:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{callback:v=>'₹'+fmt(v)}} },
+      animation:{duration:1000}
+    }
+  });
+
+  // ── Elbow Chart
+  const ks = kSel.map(r=>r.k);
+  new Chart($('elbowChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: ks,
+      datasets: [{
+        label:'Inertia', data: kSel.map(r=>parseFloat(r.inertia)),
+        borderColor:'#ff9900', backgroundColor:'rgba(255,153,0,0.12)', fill:true,
+        tension:0.4, pointRadius:5, pointHoverRadius:8,
+        pointBackgroundColor:'#ff9900', borderWidth:2.5
+      }]
+    },
+    options: {
+      plugins:{ legend:{display:false}, annotation:{} },
+      scales:{ x:{title:{display:true,text:'K',color:'#5a6a80'},grid:{display:false}}, y:{grid:{color:'rgba(255,255,255,0.05)'}} },
+      animation:{duration:1000}
+    }
+  });
+
+  // ── Silhouette Chart
+  new Chart($('silhouetteChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: ks,
+      datasets: [{
+        label:'Silhouette', data: kSel.map(r=>parseFloat(r.silhouette)),
+        borderColor:'#146eb4', backgroundColor:'rgba(20,110,180,0.12)', fill:true,
+        tension:0.4, pointRadius:5, pointHoverRadius:8,
+        pointBackgroundColor:'#146eb4', borderWidth:2.5
+      },{
+        label:'Davies-Bouldin', data: kSel.map(r=>parseFloat(r.davies_bouldin)),
+        borderColor:'#1aaa55', backgroundColor:'rgba(26,170,85,0.08)', fill:true,
+        tension:0.4, pointRadius:4, pointHoverRadius:7,
+        pointBackgroundColor:'#1aaa55', borderWidth:2, borderDash:[4,3]
+      }]
+    },
+    options: {
+      plugins:{ legend:{ labels:{boxWidth:12,font:{size:11}} } },
+      scales:{ x:{title:{display:true,text:'K',color:'#5a6a80'},grid:{display:false}}, y:{grid:{color:'rgba(255,255,255,0.05)'}} },
+      animation:{duration:1000}
+    }
+  });
+
+  // ── Segment Cards
+  const maxSpend = Math.max(...segs.map(s=>parseFloat(s.avg_spend)));
+  const grid = $('segGrid');
+  segs.forEach(s => {
+    const color = SEG_COLORS[s.segment]||'#888';
+    const emoji = SEG_EMOJIS[s.segment]||'📌';
+    const revPct = parseFloat(s.revenue_pct);
+    const usrPct = parseFloat(s.users_pct);
+    const spendPct = (parseFloat(s.avg_spend)/maxSpend*100).toFixed(0);
+    grid.innerHTML += `
+      <div class="seg-card">
+        <style>.seg-card[data-seg="${s.segment}"]::after{background:${color}}</style>
+        <div class="seg-badge" style="background:${color}20;color:${color}">${emoji} ${s.segment}</div>
+        <div class="seg-stats">
+          <div class="seg-stat">
+            <div class="seg-stat-label">Users</div>
+            <div class="seg-stat-value" style="color:${color}">${fmt(s.users)} <small style="font-size:.65rem;color:var(--muted)">(${usrPct}%)</small></div>
+          </div>
+          <div class="seg-stat">
+            <div class="seg-stat-label">Revenue Share</div>
+            <div class="seg-stat-value" style="color:${color}">${revPct}%</div>
+          </div>
+          <div class="seg-stat">
+            <div class="seg-stat-label">Avg Orders</div>
+            <div class="seg-stat-value">${parseFloat(s.avg_orders).toFixed(1)}/yr</div>
+          </div>
+          <div class="seg-stat">
+            <div class="seg-stat-label">Avg Spend</div>
+            <div class="seg-stat-value">₹${fmt(s.avg_spend)}</div>
+          </div>
+          <div class="seg-stat">
+            <div class="seg-stat-label">Coupon Rate</div>
+            <div class="seg-stat-value">${(parseFloat(s.coupon_rate)*100).toFixed(0)}%</div>
+          </div>
+          <div class="seg-stat">
+            <div class="seg-stat-label">Prime %</div>
+            <div class="seg-stat-value">${(parseFloat(s.prime_pct)*100).toFixed(0)}%</div>
+          </div>
+        </div>
+        <div class="seg-bar-wrap">
+          <div class="seg-bar-label"><span>Spend Index</span><span>${spendPct}%</span></div>
+          <div class="seg-bar"><div class="seg-bar-fill" style="width:${spendPct}%;background:${color}"></div></div>
+        </div>
+      </div>`;
+  });
+
+  // ── Strategy Table
+  const tbl = $('stratTable');
+  tbl.innerHTML = `<thead><tr><th>Segment</th><th>Users %</th><th>Revenue %</th><th>Cross-Sell</th><th>Retention</th></tr></thead><tbody>` +
+    strategy.map(r => {
+      const color = SEG_COLORS[r.segment]||'#888';
+      const emoji = SEG_EMOJIS[r.segment]||'📌';
+      return `<tr>
+        <td><span style="color:${color};font-weight:700">${emoji} ${r.segment}</span></td>
+        <td style="color:${color};font-weight:600">${r.users_pct}%</td>
+        <td style="color:${color};font-weight:600">${r.revenue_pct}%</td>
+        <td style="color:var(--text)">${r.cross_sell}</td>
+        <td style="color:var(--muted)">${r.retention}</td>
+      </tr>`;
+    }).join('') + '</tbody>';
+
+  // ── Cross-Sell Cards
+  const csGrid = $('csGrid');
+  crossSell.forEach(r => {
+    const color = SEG_COLORS[r.segment]||'#888';
+    const lift = parseFloat(r.lift).toFixed(2);
+    const sup  = (parseFloat(r.support)*100).toFixed(1);
+    csGrid.innerHTML += `
+      <div class="cs-card">
+        <div class="cs-seg" style="color:${color}">${SEG_EMOJIS[r.segment]||''} ${r.segment}</div>
+        <div class="cs-pair">📦 ${r.category_a} + ${r.category_b}</div>
+        <div class="cs-meta">
+          <span class="cs-pill cs-lift">🔥 Lift: ${lift}x</span>
+          <span class="cs-pill cs-sup">Support: ${sup}%</span>
+        </div>
+      </div>`;
+  });
+
+  // ── Charts Gallery
+  const charts = [
+    {file:'01_elbow_silhouette.png', title:'Elbow & Silhouette — K Selection'},
+    {file:'02_segments_pca.png',     title:'PCA 2D — Customer Clusters'},
+    {file:'03_users_vs_revenue.png', title:'Users vs Revenue % per Segment'},
+    {file:'04_profile_heatmap.png',  title:'Segment Feature Profile Heatmap'},
+  ];
+  const gallery = $('chartGallery');
+  charts.forEach(c => {
+    gallery.innerHTML += `
+      <div class="chart-img-card">
+        <img src="/charts/${c.file}" alt="${c.title}" loading="lazy"/>
+        <div class="img-caption">📊 ${c.title}</div>
+      </div>`;
+  });
+}
+
+init();
+</script>
+</body>
+</html>

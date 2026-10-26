@@ -1,0 +1,16 @@
+segment,category_a,category_b,support,lift
+Deal Seekers,Books,Toys,0.0363,3.0
+Deal Seekers,Electronics,Home & Kitchen,0.0402,1.47
+Deal Seekers,Fashion,Sports,0.0423,1.46
+Family Bulk Buyers,Fashion,Sports,0.0132,4.37
+Family Bulk Buyers,Beauty,Fashion,0.029,2.07
+Family Bulk Buyers,Books,Toys,0.015,1.84
+Occasional Shoppers,Books,Toys,0.0908,2.07
+Occasional Shoppers,Beauty,Fashion,0.0875,1.72
+Occasional Shoppers,Fashion,Sports,0.0446,1.56
+Premium Loyalists,Books,Toys,0.0276,3.63
+Premium Loyalists,Grocery,Toys,0.031,1.75
+Premium Loyalists,Fashion,Sports,0.0615,1.55
+Tech Enthusiasts,Books,Toys,0.0311,4.25
+Tech Enthusiasts,Grocery,Toys,0.0177,3.59
+Tech Enthusiasts,Fashion,Sports,0.0359,3.26
